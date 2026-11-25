@@ -1,14 +1,16 @@
 package com.j2me.multibox.emulator
 
-import android.app.Application
 import android.content.Context
 import android.graphics.Bitmap
 import android.view.Surface
+import com.android.dx.command.dexer.Main
 import com.j2me.multibox.macro.KeyInjector
 import com.j2me.multibox.service.HeadlessRenderController
 import com.j2me.multibox.storage.BoxConfig
-import ru.woesss.j2me.installer.AppInstaller
+import ru.playsoftware.j2meloader.config.Config
+import ru.woesss.j2me.jar.Descriptor
 import java.io.File
+import java.util.jar.JarFile
 import javax.microedition.lcdui.Canvas
 import javax.microedition.lcdui.Display
 import javax.microedition.shell.AppClassLoader
@@ -16,7 +18,7 @@ import javax.microedition.shell.MidletThread
 
 /**
  * Real J2ME-Loader engine adapter for a single isolated Box (:box_N process).
- * - Converts .jar/.jad via dexlib/AppInstaller into an isolated converted directory
+ * - Converts .jar -> converted.dex + converted.dex.conf + res.jar via dexlib
  * - Isolates RMS RecordStore strictly to [rmsDir] via AppClassLoader.setCustomDataDir
  * - Injects KeyInjector & touchscreen pointer events directly into active LCDUI Canvas
  */
@@ -39,12 +41,35 @@ class J2meEngineAdapter(
         if (!rmsDir.exists()) rmsDir.mkdirs()
         AppClassLoader.setCustomDataDir(rmsDir.absolutePath)
 
-        val dexMarker = File(convertedDir, "classes.dex")
-        if (!dexMarker.exists()) {
+        val dexFile = File(convertedDir, Config.MIDLET_DEX_FILE.trimStart('/'))
+        val confFile = File(convertedDir, Config.MIDLET_MANIFEST_FILE.trimStart('/'))
+        val resFile = File(convertedDir, Config.MIDLET_RES_FILE.trimStart('/'))
+
+        if (!dexFile.exists() || !confFile.exists() || !resFile.exists()) {
             convertedDir.mkdirs()
-            val installer = AppInstaller(jarPath, null, context.applicationContext as Application, null)
-            installer.loadInfo(null)
-            // Note: AppInstaller converts JAR -> DEX into target dir using dexlib AndroidProducer
+            val jarFile = File(jarPath)
+            require(jarFile.exists()) { "JAR file not found: $jarPath" }
+
+            // 1. Convert Java .jar bytecode to Android Dalvik .dex
+            Main.main(
+                arrayOf(
+                    "--no-optimize",
+                    "--core-library",
+                    "--output=${dexFile.absolutePath}",
+                    jarFile.absolutePath
+                )
+            )
+
+            // 2. Copy original .jar as res.jar for J2ME resources
+            jarFile.copyTo(resFile, overwrite = true)
+
+            // 3. Extract MANIFEST.MF into converted.dex.conf
+            val manifestText = JarFile(jarFile).use { jf ->
+                val entry = jf.getJarEntry(JarFile.MANIFEST_NAME)
+                    ?: throw IllegalStateException("JAR missing META-INF/MANIFEST.MF")
+                jf.getInputStream(entry).bufferedReader().use { it.readText() }
+            }
+            Descriptor(manifestText, false).writeTo(confFile)
         }
         return convertedDir
     }

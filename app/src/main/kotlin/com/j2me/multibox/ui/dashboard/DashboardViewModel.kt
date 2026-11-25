@@ -165,28 +165,46 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             return
         }
 
-        if (existingSlot == null || item.runtime?.status == null || item.runtime.status == BoxStatus.OFFLINE) {
-            val serviceIntent = Intent(ctx, BoxRunnerService.serviceClassForSlot(slot)).apply {
-                action = BoxRunnerService.ACTION_START_BOX
-                putExtra(BoxRunnerService.EXTRA_BOX_ID, item.box.boxId)
-                putExtra(BoxRunnerService.EXTRA_BOX_NAME, item.box.name)
-                putExtra(BoxRunnerService.EXTRA_JAR_PATH, item.jarPath)
-                putExtra(BoxRunnerService.EXTRA_SLOT, slot)
-            }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                ctx.startForegroundService(serviceIntent)
-            } else {
-                ctx.startService(serviceIntent)
-            }
-        }
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                // Ensure .jar -> .dex conversion completes before launching BoxActivity
+                val rmsDir = storage.getRmsDir(item.box.boxId)
+                val convertedDir = java.io.File(storage.getBoxPaths(item.box.boxId).boxRoot, "converted")
+                com.j2me.multibox.emulator.J2meEngineAdapter(
+                    boxId = item.box.boxId,
+                    jarPath = item.jarPath,
+                    rmsDir = rmsDir,
+                    config = storage.loadConfig(item.box.boxId)
+                ).prepareBoxEnvironment(ctx, convertedDir)
 
-        val activityIntent = Intent(ctx, BoxActivity.activityClassForSlot(slot)).apply {
-            putExtra(BoxRunnerService.EXTRA_BOX_ID, item.box.boxId)
-            putExtra(BoxRunnerService.EXTRA_BOX_NAME, item.box.name)
-            putExtra(BoxRunnerService.EXTRA_SLOT, slot)
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                if (existingSlot == null || item.runtime?.status == null || item.runtime.status == BoxStatus.OFFLINE) {
+                    val serviceIntent = Intent(ctx, BoxRunnerService.serviceClassForSlot(slot)).apply {
+                        action = BoxRunnerService.ACTION_START_BOX
+                        putExtra(BoxRunnerService.EXTRA_BOX_ID, item.box.boxId)
+                        putExtra(BoxRunnerService.EXTRA_BOX_NAME, item.box.name)
+                        putExtra(BoxRunnerService.EXTRA_JAR_PATH, item.jarPath)
+                        putExtra(BoxRunnerService.EXTRA_SLOT, slot)
+                    }
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        ctx.startForegroundService(serviceIntent)
+                    } else {
+                        ctx.startService(serviceIntent)
+                    }
+                }
+
+                val activityIntent = Intent(ctx, BoxActivity.activityClassForSlot(slot)).apply {
+                    putExtra(BoxRunnerService.EXTRA_BOX_ID, item.box.boxId)
+                    putExtra(BoxRunnerService.EXTRA_BOX_NAME, item.box.name)
+                    putExtra(BoxRunnerService.EXTRA_JAR_PATH, item.jarPath)
+                    putExtra(BoxRunnerService.EXTRA_SLOT, slot)
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                ctx.startActivity(activityIntent)
+            } catch (e: Exception) {
+                slotManager.releaseSlot(item.box.boxId)
+                _errorMessage.value = "Lỗi khởi chạy game: ${e.message}"
+            }
         }
-        ctx.startActivity(activityIntent)
     }
 
     fun stopBox(boxId: String) {
