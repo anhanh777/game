@@ -36,8 +36,13 @@ class J2meEngineAdapter(
     var onDisconnectDetected: (() -> Unit)? = null
     var onNetworkActivity: (() -> Unit)? = null
 
+    companion object {
+        private val dexLock = Any()
+    }
+
     /**
      * Ensures the .jar file is dex-converted into [convertedDir] and pins RMS storage to [rmsDir].
+     * Caches the heavy dx conversion per .jar file so subsequent boxes open instantaneously.
      */
     fun prepareBoxEnvironment(context: Context, convertedDir: File): File {
         if (!rmsDir.exists()) rmsDir.mkdirs()
@@ -52,26 +57,40 @@ class J2meEngineAdapter(
             val jarFile = File(jarPath)
             require(jarFile.exists()) { "JAR file not found: $jarPath" }
 
-            // 1. Convert Java .jar bytecode to Android Dalvik .dex
-            Main.main(
-                arrayOf(
-                    "--no-optimize",
-                    "--core-library",
-                    "--output=${dexFile.absolutePath}",
-                    jarFile.absolutePath
-                )
-            )
+            val cacheDir = File(jarFile.parentFile, "${jarFile.nameWithoutExtension}_dex_cache")
+            val cacheDex = File(cacheDir, Config.MIDLET_DEX_FILE.trimStart('/'))
+            val cacheConf = File(cacheDir, Config.MIDLET_MANIFEST_FILE.trimStart('/'))
+            val cacheRes = File(cacheDir, Config.MIDLET_RES_FILE.trimStart('/'))
 
-            // 2. Copy original .jar as res.jar for J2ME resources
-            jarFile.copyTo(resFile, overwrite = true)
+            synchronized(dexLock) {
+                if (!cacheDex.exists() || !cacheConf.exists() || !cacheRes.exists()) {
+                    cacheDir.mkdirs()
+                    // 1. Convert Java .jar bytecode to Android Dalvik .dex
+                    Main.main(
+                        arrayOf(
+                            "--no-optimize",
+                            "--core-library",
+                            "--output=${cacheDex.absolutePath}",
+                            jarFile.absolutePath
+                        )
+                    )
 
-            // 3. Extract MANIFEST.MF into converted.dex.conf
-            val manifestText = JarFile(jarFile).use { jf ->
-                val entry = jf.getJarEntry(JarFile.MANIFEST_NAME)
-                    ?: throw IllegalStateException("JAR missing META-INF/MANIFEST.MF")
-                jf.getInputStream(entry).bufferedReader().use { it.readText() }
+                    // 2. Copy original .jar as res.jar for J2ME resources
+                    jarFile.copyTo(cacheRes, overwrite = true)
+
+                    // 3. Extract MANIFEST.MF into converted.dex.conf
+                    val manifestText = JarFile(jarFile).use { jf ->
+                        val entry = jf.getJarEntry(JarFile.MANIFEST_NAME)
+                            ?: throw IllegalStateException("JAR missing META-INF/MANIFEST.MF")
+                        jf.getInputStream(entry).bufferedReader().use { it.readText() }
+                    }
+                    Descriptor(manifestText, false).writeTo(cacheConf)
+                }
             }
-            Descriptor(manifestText, false).writeTo(confFile)
+
+            cacheDex.copyTo(dexFile, overwrite = true)
+            cacheRes.copyTo(resFile, overwrite = true)
+            cacheConf.copyTo(confFile, overwrite = true)
         }
 
         // 4. Ensure ProfileModel config.json exists in {boxRoot}/configs/{boxId}/config.json

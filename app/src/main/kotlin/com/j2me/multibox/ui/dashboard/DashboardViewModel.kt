@@ -129,7 +129,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                         jarPath = savedFile.absolutePath
                     )
                 )
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 _errorMessage.value = "Lỗi nhập file .jar: ${e.message}"
             }
         }
@@ -210,7 +210,8 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                     config = storage.loadConfig(item.box.boxId)
                 ).prepareBoxEnvironment(ctx, convertedDir)
 
-                if (existingSlot == null || item.runtime?.status == null || item.runtime.status == BoxStatus.OFFLINE) {
+                kotlinx.coroutines.withContext(Dispatchers.Main) {
+                    if (existingSlot == null || item.runtime?.status == null || item.runtime.status == BoxStatus.OFFLINE) {
                     val serviceIntent = Intent(ctx, BoxRunnerService.serviceClassForSlot(slot)).apply {
                         action = BoxRunnerService.ACTION_START_BOX
                         putExtra(BoxRunnerService.EXTRA_BOX_ID, item.box.boxId)
@@ -233,9 +234,10 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
                 ctx.startActivity(activityIntent)
-            } catch (e: Exception) {
+                }
+            } catch (e: Throwable) {
                 slotManager.releaseSlot(item.box.boxId)
-                _errorMessage.value = "Lỗi khởi chạy game: ${e.message}"
+                _errorMessage.value = "Lỗi khởi chạy game: ${e.javaClass.simpleName}: ${e.message}"
             } finally {
                 _loadingMessage.value = null
             }
