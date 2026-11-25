@@ -4,6 +4,7 @@ import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.os.Build
+import ru.playsoftware.j2meloader.EmulatorApplication
 
 class MultiBoxApp : Application() {
 
@@ -14,6 +15,7 @@ class MultiBoxApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        EmulatorApplication.init(this)
         createNotificationChannels()
     }
 
