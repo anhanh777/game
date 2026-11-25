@@ -14,6 +14,7 @@ import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
 import com.j2me.multibox.service.BoxRunnerService
 import com.j2me.multibox.storage.BoxStorageManager
@@ -136,27 +137,26 @@ abstract class BoxActivity : MicroActivity() {
 
         val container = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(48, 24, 48, 12)
-        }
-
-        val presetRow = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            setPadding(0, 0, 0, 16)
+            setPadding(40, 20, 40, 12)
         }
 
         val widthInput = EditText(this).apply {
-            hint = "Chiều rộng (vd: 240)"
+            hint = "Chiều rộng (vd: 320)"
             inputType = InputType.TYPE_CLASS_NUMBER
             setText(currentProfile.screenWidth.toString())
         }
         val heightInput = EditText(this).apply {
-            hint = "Chiều cao (vd: 320)"
+            hint = "Chiều cao (vd: 240)"
             inputType = InputType.TYPE_CLASS_NUMBER
             setText(currentProfile.screenHeight.toString())
         }
 
-        val presets = listOf("240x320" to (240 to 320), "320x480" to (320 to 480), "360x640" to (360 to 640))
-        presets.forEach { (label, size) ->
+        val portraitRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(0, 4, 0, 8)
+        }
+        val portraitPresets = listOf("240x320" to (240 to 320), "320x480" to (320 to 480), "360x640" to (360 to 640))
+        portraitPresets.forEach { (label, size) ->
             val btn = Button(this).apply {
                 text = label
                 textSize = 11f
@@ -165,11 +165,44 @@ abstract class BoxActivity : MicroActivity() {
                     heightInput.setText(size.second.toString())
                 }
             }
-            presetRow.addView(btn)
+            portraitRow.addView(btn)
+        }
+
+        val landscapeRow1 = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(0, 4, 0, 4)
+        }
+        val landscapeRow2 = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(0, 0, 0, 12)
+        }
+        val landscapePresets1 = listOf("320x240" to (320 to 240), "400x240" to (400 to 240))
+        val landscapePresets2 = listOf("480x320" to (480 to 320), "640x360" to (640 to 360))
+        landscapePresets1.forEach { (label, size) ->
+            val btn = Button(this).apply {
+                text = label
+                textSize = 11f
+                setOnClickListener {
+                    widthInput.setText(size.first.toString())
+                    heightInput.setText(size.second.toString())
+                }
+            }
+            landscapeRow1.addView(btn)
+        }
+        landscapePresets2.forEach { (label, size) ->
+            val btn = Button(this).apply {
+                text = label
+                textSize = 11f
+                setOnClickListener {
+                    widthInput.setText(size.first.toString())
+                    heightInput.setText(size.second.toString())
+                }
+            }
+            landscapeRow2.addView(btn)
         }
 
         val scaleFitCheck = CheckBox(this).apply {
-            text = "Phóng to vừa màn hình"
+            text = "Phóng to vừa khung hiển thị"
             isChecked = currentProfile.screenScaleToFit
         }
         val aspectCheck = CheckBox(this).apply {
@@ -180,9 +213,16 @@ abstract class BoxActivity : MicroActivity() {
             text = "Hiện bàn phím ảo"
             isChecked = currentProfile.showKeyboard
         }
+        val lockPortraitCheck = CheckBox(this).apply {
+            text = "Giữ máy đứng (chỉ ngang khung game)"
+            isChecked = currentProfile.orientation != 3
+        }
 
-        container.addView(TextView(this).apply { text = "Chọn nhanh độ phân giải:" })
-        container.addView(presetRow)
+        container.addView(TextView(this).apply { text = "Khung dọc:" })
+        container.addView(portraitRow)
+        container.addView(TextView(this).apply { text = "Khung ngang (vẫn giữ máy đứng):" })
+        container.addView(landscapeRow1)
+        container.addView(landscapeRow2)
         container.addView(TextView(this).apply { text = "Chiều rộng (px):" })
         container.addView(widthInput)
         container.addView(TextView(this).apply { text = "Chiều cao (px):" })
@@ -190,10 +230,13 @@ abstract class BoxActivity : MicroActivity() {
         container.addView(scaleFitCheck)
         container.addView(aspectCheck)
         container.addView(keypadCheck)
+        container.addView(lockPortraitCheck)
+
+        val scrollView = ScrollView(this).apply { addView(container) }
 
         AlertDialog.Builder(this)
             .setTitle("Cài đặt màn hình Box")
-            .setView(container)
+            .setView(scrollView)
             .setPositiveButton("Áp dụng") { _, _ ->
                 val w = widthInput.text.toString().toIntOrNull()?.coerceIn(128, 1440) ?: 240
                 val h = heightInput.text.toString().toIntOrNull()?.coerceIn(160, 2560) ?: 320
@@ -211,6 +254,7 @@ abstract class BoxActivity : MicroActivity() {
                 currentProfile.screenScaleToFit = scaleFitCheck.isChecked
                 currentProfile.screenKeepAspectRatio = aspectCheck.isChecked
                 currentProfile.showKeyboard = keypadCheck.isChecked
+                currentProfile.orientation = if (lockPortraitCheck.isChecked) 2 else 0
                 currentProfile.disablePause = true
                 ProfilesManager.saveConfig(currentProfile)
 
