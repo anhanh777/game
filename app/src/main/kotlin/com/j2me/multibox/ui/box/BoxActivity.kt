@@ -1,55 +1,30 @@
 package com.j2me.multibox.ui.box
 
-import android.annotation.SuppressLint
+import android.content.Intent
 import android.graphics.Bitmap
+import android.graphics.Color
+import android.net.Uri
 import android.os.Bundle
-import android.view.MotionEvent
-import android.view.SurfaceHolder
-import android.view.SurfaceView
-import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CloseFullscreen
-import androidx.compose.material.icons.filled.Keyboard
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.viewinterop.AndroidView
-import com.j2me.multibox.emulator.J2meEngineAdapter
+import android.view.Gravity
+import android.view.ViewGroup
+import android.widget.Button
+import android.widget.FrameLayout
+import android.widget.LinearLayout
 import com.j2me.multibox.service.BoxRunnerService
 import com.j2me.multibox.storage.BoxStorageManager
+import com.j2me.multibox.ui.MainActivity
+import java.io.File
 import java.io.FileOutputStream
+import javax.microedition.shell.AppClassLoader
+import javax.microedition.shell.MicroActivity
 
 /**
- * Full-screen interactive J2ME Box view running in the same :box_N process as its BoxRunnerService.
- * Supports direct touchscreen input, toggleable virtual keypad, per-box resolution settings,
- * and Minimize (detaching Surface to 0 FPS headless mode while keeping the game running).
+ * Full-screen interactive J2ME Box Activity extending J2ME-Loader's MicroActivity.
+ * Runs inside :box_N process with isolated RMS dataDir, keeps MIDlet running in background
+ * when minimized or screen-off (pauseDisabled = true, keepAliveOnDestroy = true),
+ * and provides a floating Minimize button back to the Dashboard.
  */
-abstract class BoxActivity : ComponentActivity() {
+abstract class BoxActivity : MicroActivity() {
 
     companion object {
         fun activityClassForSlot(slot: Int): Class<out BoxActivity> = when (slot) {
@@ -65,172 +40,80 @@ abstract class BoxActivity : ComponentActivity() {
         }
     }
 
-    private var engine: J2meEngineAdapter? = null
+    private var boxId: String = "unknown"
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        val boxId = intent.getStringExtra(BoxRunnerService.EXTRA_BOX_ID) ?: BoxRunnerService.currentBoxId ?: "unknown"
-        val boxName = intent.getStringExtra(BoxRunnerService.EXTRA_BOX_NAME) ?: boxId
-        engine = BoxRunnerService.currentEngine
+        boxId = intent.getStringExtra(BoxRunnerService.EXTRA_BOX_ID)
+            ?: BoxRunnerService.currentBoxId
+            ?: "unknown"
 
-        setContent {
-            MaterialTheme {
-                BoxFullScreen(
-                    boxName = boxName,
-                    engine = engine,
-                    onSaveConfig = { w, h, showKeypad ->
-                        engine?.let { eng ->
-                            val updated = eng.config.copy(
-                                screenWidth = w,
-                                screenHeight = h,
-                                showVirtualKeypad = showKeypad
-                            )
-                            eng.updateConfig(updated)
-                            BoxStorageManager(filesDir).saveConfig(boxId, updated)
-                        }
-                    },
-                    onMinimize = { minimizeBox(boxId) }
-                )
-            }
+        val storage = BoxStorageManager(filesDir)
+        val rmsDir = storage.getRmsDir(boxId)
+        AppClassLoader.setCustomDataDir(rmsDir.absolutePath)
+
+        val engine = BoxRunnerService.currentEngine
+        if (intent.data == null && engine != null) {
+            val convertedDir = File(storage.getBoxPaths(boxId).boxRoot, "converted")
+            engine.prepareBoxEnvironment(this, convertedDir)
+            intent.data = Uri.fromFile(convertedDir)
+            intent.putExtra(KEY_MIDLET_NAME, intent.getStringExtra(BoxRunnerService.EXTRA_BOX_NAME) ?: boxId)
         }
+
+        super.onCreate(savedInstanceState)
+
+        // Keep MIDlet & network loop alive when minimized or screen turns off
+        pauseDisabled = true
+        keepAliveOnDestroy = true
+
+        attachMinimizeOverlay()
     }
 
-    private fun minimizeBox(boxId: String) {
-        engine?.let { eng ->
-            val snapshot = eng.captureSnapshot()
+    private fun attachMinimizeOverlay() {
+        val root = window.decorView.findViewById<ViewGroup>(android.R.id.content) ?: return
+        val bar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setBackgroundColor(Color.argb(170, 20, 25, 38))
+            setPadding(16, 8, 16, 8)
+        }
+
+        val minimizeBtn = Button(this).apply {
+            text = "Thu nhỏ"
+            setTextColor(Color.WHITE)
+            setBackgroundColor(Color.rgb(22, 163, 74))
+            setOnClickListener { minimizeToDashboard() }
+        }
+        bar.addView(minimizeBtn)
+
+        val params = FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.WRAP_CONTENT,
+            FrameLayout.LayoutParams.WRAP_CONTENT,
+            Gravity.TOP or Gravity.END
+        ).apply {
+            topMargin = 24
+            rightMargin = 24
+        }
+        root.addView(bar, params)
+    }
+
+    private fun minimizeToDashboard() {
+        BoxRunnerService.currentEngine?.let { engine ->
+            val snapshot = engine.captureSnapshot()
             if (snapshot != null) {
                 val snapshotFile = BoxStorageManager(filesDir).getBoxPaths(boxId).snapshotFile
-                FileOutputStream(snapshotFile).use { fos ->
-                    snapshot.compress(Bitmap.CompressFormat.PNG, 85, fos)
-                }
-            }
-            eng.detachSurface()
-        }
-        finish()
-    }
-
-    override fun onPause() {
-        super.onPause()
-        engine?.detachSurface()
-    }
-}
-
-@SuppressLint("ClickableViewAccessibility")
-@Composable
-private fun BoxFullScreen(
-    boxName: String,
-    engine: J2meEngineAdapter?,
-    onSaveConfig: (width: Int, height: Int, showKeypad: Boolean) -> Unit,
-    onMinimize: () -> Unit
-) {
-    var showKeypad by remember { mutableStateOf(engine?.config?.showVirtualKeypad ?: true) }
-    var showSettings by remember { mutableStateOf(false) }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black)
-    ) {
-        // Top mini-toolbar
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(Color(0xFF161B26))
-                .padding(horizontal = 12.dp, vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(text = boxName, color = Color.White, style = MaterialTheme.typography.titleMedium)
-            Row {
-                IconButton(onClick = { showKeypad = !showKeypad }) {
-                    Icon(Icons.Default.Keyboard, contentDescription = "Toggle Keypad", tint = Color.White)
-                }
-                IconButton(onClick = { showSettings = true }) {
-                    Icon(Icons.Default.Settings, contentDescription = "Box Settings", tint = Color.White)
-                }
-                IconButton(onClick = onMinimize) {
-                    Icon(Icons.Default.CloseFullscreen, contentDescription = "Minimize Box", tint = Color(0xFF4ADE80))
-                }
-            }
-        }
-
-        // Game Canvas with direct touchscreen pass-through
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-        ) {
-            AndroidView(
-                modifier = Modifier.fillMaxSize(),
-                factory = { context ->
-                    SurfaceView(context).apply {
-                        holder.addCallback(object : SurfaceHolder.Callback {
-                            override fun surfaceCreated(holder: SurfaceHolder) {
-                                engine?.attachSurface(holder.surface)
-                            }
-                            override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
-                                engine?.attachSurface(holder.surface)
-                            }
-                            override fun surfaceDestroyed(holder: SurfaceHolder) {
-                                engine?.detachSurface()
-                            }
-                        })
-                        setOnTouchListener { _, event ->
-                            val x = event.x.toInt()
-                            val y = event.y.toInt()
-                            when (event.actionMasked) {
-                                MotionEvent.ACTION_DOWN -> engine?.pointerPressed(x, y)
-                                MotionEvent.ACTION_MOVE -> engine?.pointerDragged(x, y)
-                                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> engine?.pointerReleased(x, y)
-                            }
-                            true
-                        }
+                runCatching {
+                    FileOutputStream(snapshotFile).use { fos ->
+                        snapshot.compress(Bitmap.CompressFormat.PNG, 85, fos)
                     }
                 }
-            )
-        }
-
-        if (showKeypad) {
-            VirtualKeypadOverlay(
-                onKeyDown = { code -> engine?.pressKey(code) },
-                onKeyUp = { code -> engine?.releaseKey(code) }
-            )
-        }
-    }
-
-    if (showSettings) {
-        var widthText by remember { mutableStateOf((engine?.config?.screenWidth ?: 240).toString()) }
-        var heightText by remember { mutableStateOf((engine?.config?.screenHeight ?: 320).toString()) }
-
-        AlertDialog(
-            onDismissRequest = { showSettings = false },
-            title = { Text("Cài đặt Box: $boxName") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = widthText,
-                        onValueChange = { widthText = it.filter(Char::isDigit) },
-                        label = { Text("Chiều rộng (px)") }
-                    )
-                    OutlinedTextField(
-                        value = heightText,
-                        onValueChange = { heightText = it.filter(Char::isDigit) },
-                        label = { Text("Chiều cao (px)") }
-                    )
-                }
-            },
-            confirmButton = {
-                Button(onClick = {
-                    val w = widthText.toIntOrNull()?.coerceIn(128, 1080) ?: 240
-                    val h = heightText.toIntOrNull()?.coerceIn(160, 1920) ?: 320
-                    onSaveConfig(w, h, showKeypad)
-                    showSettings = false
-                }) { Text("Lưu") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showSettings = false }) { Text("Hủy") }
             }
-        )
+            engine.detachSurface()
+        }
+
+        // Bring MainActivity Dashboard to front while keeping this :box_N process & MIDlet alive
+        val dashboardIntent = Intent(this, MainActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        startActivity(dashboardIntent)
     }
 }
 

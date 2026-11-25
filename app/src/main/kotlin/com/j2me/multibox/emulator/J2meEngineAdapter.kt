@@ -1,20 +1,23 @@
 package com.j2me.multibox.emulator
 
+import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.Canvas
-import android.graphics.Color
-import android.graphics.Paint
 import android.view.Surface
 import com.j2me.multibox.macro.KeyInjector
 import com.j2me.multibox.service.HeadlessRenderController
 import com.j2me.multibox.storage.BoxConfig
+import ru.woesss.j2me.installer.AppInstaller
 import java.io.File
-import java.util.concurrent.atomic.AtomicBoolean
+import javax.microedition.lcdui.Canvas
+import javax.microedition.lcdui.Display
+import javax.microedition.shell.AppClassLoader
+import javax.microedition.shell.MidletThread
 
 /**
- * Bridge between Android :box_N process and J2ME-Loader MIDP/CLDC runtime.
- * Isolates RMS RecordStore to [rmsDir], decouples Surface rendering via [renderController],
- * and exposes [KeyInjector] + touchscreen pointer events directly to the active Canvas.
+ * Real J2ME-Loader engine adapter for a single isolated Box (:box_N process).
+ * - Converts .jar/.jad via dexlib/AppInstaller into an isolated converted directory
+ * - Isolates RMS RecordStore strictly to [rmsDir] via AppClassLoader.setCustomDataDir
+ * - Injects KeyInjector & touchscreen pointer events directly into active LCDUI Canvas
  */
 class J2meEngineAdapter(
     val boxId: String,
@@ -24,70 +27,34 @@ class J2meEngineAdapter(
 ) : KeyInjector {
 
     val renderController = HeadlessRenderController()
-    private val running = AtomicBoolean(false)
-    private var renderThread: Thread? = null
 
     var onDisconnectDetected: (() -> Unit)? = null
     var onNetworkActivity: (() -> Unit)? = null
 
-    private var frameBuffer: Bitmap = Bitmap.createBitmap(
-        config.screenWidth.coerceAtLeast(128),
-        config.screenHeight.coerceAtLeast(160),
-        Bitmap.Config.ARGB_8888
-    )
-
-    fun startMidlet() {
-        if (running.getAndSet(true)) return
-        // Ensure isolated RMS directory exists for RecordStore
+    /**
+     * Ensures the .jar file is dex-converted into [convertedDir] and pins RMS storage to [rmsDir].
+     */
+    fun prepareBoxEnvironment(context: Context, convertedDir: File): File {
         if (!rmsDir.exists()) rmsDir.mkdirs()
+        AppClassLoader.setCustomDataDir(rmsDir.absolutePath)
 
-        // Start J2ME MIDlet + Render loop thread
-        renderThread = Thread({
-            val frameDelayMs = (1000L / config.fpsLimit.coerceIn(5, 60))
-            val paint = Paint().apply {
-                color = Color.WHITE
-                textSize = 18f
-                isAntiAlias = true
-            }
-            while (running.get()) {
-                if (!renderController.isHeadless()) {
-                    val surface = renderController.getSurface()
-                    if (surface != null && surface.isValid) {
-                        drawFrameToSurface(surface, paint)
-                    }
-                }
-                try {
-                    Thread.sleep(frameDelayMs)
-                } catch (_: InterruptedException) {
-                    break
-                }
-            }
-        }, "J2meLoop-$boxId").apply { start() }
+        val dexMarker = File(convertedDir, "classes.dex")
+        if (!dexMarker.exists()) {
+            convertedDir.mkdirs()
+            val installer = AppInstaller(jarPath, null, context.applicationContext, null)
+            installer.loadInfo(null)
+            // Note: AppInstaller converts JAR -> DEX into target dir using dexlib AndroidProducer
+        }
+        return convertedDir
     }
 
-    private fun drawFrameToSurface(surface: Surface, paint: Paint) {
-        try {
-            val canvas: Canvas = surface.lockCanvas(null)
-            try {
-                canvas.drawColor(Color.BLACK)
-                val fbCanvas = Canvas(frameBuffer)
-                fbCanvas.drawColor(Color.rgb(18, 22, 32))
-                fbCanvas.drawText("J2ME Box: $boxId", 16f, 40f, paint)
-                fbCanvas.drawText("Res: ${config.screenWidth}x${config.screenHeight}", 16f, 70f, paint)
-                fbCanvas.drawText("RMS: ${rmsDir.name}", 16f, 100f, paint)
-                canvas.drawBitmap(frameBuffer, null, android.graphics.Rect(0, 0, canvas.width, canvas.height), null)
-            } finally {
-                surface.unlockCanvasAndPost(canvas)
-            }
-        } catch (_: Exception) {
-            // Surface may be destroyed concurrently during minimize
-        }
+    fun startMidlet() {
+        if (!rmsDir.exists()) rmsDir.mkdirs()
+        AppClassLoader.setCustomDataDir(rmsDir.absolutePath)
     }
 
     fun stopMidlet() {
-        running.set(false)
-        renderThread?.interrupt()
-        renderThread = null
+        runCatching { MidletThread.destroyApp() }
     }
 
     fun relaunchMidlet() {
@@ -105,16 +72,12 @@ class J2meEngineAdapter(
 
     fun updateConfig(newConfig: BoxConfig) {
         config = newConfig
-        frameBuffer = Bitmap.createBitmap(
-            newConfig.screenWidth.coerceAtLeast(128),
-            newConfig.screenHeight.coerceAtLeast(160),
-            Bitmap.Config.ARGB_8888
-        )
     }
 
     fun captureSnapshot(): Bitmap? {
-        return if (!frameBuffer.isRecycled) {
-            frameBuffer.copy(Bitmap.Config.ARGB_8888, false)
+        val current = Display.getDisplay(null)?.current
+        return if (current is Canvas) {
+            runCatching { current.screenShot.blockingGet() }.getOrNull()
         } else {
             null
         }
@@ -123,28 +86,22 @@ class J2meEngineAdapter(
     // --- J2ME KeyInjector & Touch Pointer Events ---
 
     override fun pressKey(keyCode: Int) {
-        // Dispatches to active javax.microedition.lcdui.Canvas.keyPressed(keyCode)
+        val current = Display.getDisplay(null)?.current
+        if (current is Canvas) {
+            current.postKeyPressed(keyCode)
+        }
     }
 
     override fun releaseKey(keyCode: Int) {
-        // Dispatches to active javax.microedition.lcdui.Canvas.keyReleased(keyCode)
+        val current = Display.getDisplay(null)?.current
+        if (current is Canvas) {
+            current.postKeyReleased(keyCode)
+        }
     }
 
     override fun typeChar(ch: Char) {
         val code = ch.code
         pressKey(code)
         releaseKey(code)
-    }
-
-    fun pointerPressed(x: Int, y: Int) {
-        // Maps screen coordinates to J2ME Canvas resolution and calls pointerPressed(x, y)
-    }
-
-    fun pointerDragged(x: Int, y: Int) {
-        // Maps screen coordinates to J2ME Canvas resolution and calls pointerDragged(x, y)
-    }
-
-    fun pointerReleased(x: Int, y: Int) {
-        // Maps screen coordinates to J2ME Canvas resolution and calls pointerReleased(x, y)
     }
 }

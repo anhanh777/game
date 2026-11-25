@@ -58,6 +58,9 @@ android {
 }
 
 dependencies {
+    implementation(project(":j2me-core"))
+    implementation(project(":dexlib"))
+
     // Core Android & Kotlin
     implementation("androidx.core:core-ktx:1.12.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0")

@@ -10,8 +10,9 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        maven { url = uri("https://jitpack.io") }
     }
 }
 
 rootProject.name = "J2MEMultiBox"
-include(":app")
+include(":app", ":dexlib", ":j2me-core")
