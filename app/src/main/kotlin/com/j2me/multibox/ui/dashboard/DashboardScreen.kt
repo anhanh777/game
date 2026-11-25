@@ -1,6 +1,7 @@
 package com.j2me.multibox.ui.dashboard
 
 import android.graphics.BitmapFactory
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -15,34 +16,44 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Gamepad
 import androidx.compose.material.icons.filled.Key
+import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.UploadFile
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -53,10 +64,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.j2me.multibox.data.db.GameEntity
@@ -78,6 +91,8 @@ fun DashboardScreen(
     var showCreateBoxDialog by remember { mutableStateOf(false) }
     var renamingBox by remember { mutableStateOf<BoxUiItem?>(null) }
 
+    val activeCount = boxes.count { it.runtime?.status != null && it.runtime.status != BoxStatus.OFFLINE }
+
     LaunchedEffect(errorMsg) {
         errorMsg?.let {
             snackbarHostState.showSnackbar(it)
@@ -86,25 +101,57 @@ fun DashboardScreen(
     }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
-                title = { Text("J2ME Multi-Box (${boxes.count { it.runtime?.status != null && it.runtime.status != BoxStatus.OFFLINE }} đang chạy)") },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color(0xFF0F172A),
+                    titleContentColor = Color.White
+                ),
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Default.Gamepad,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Column {
+                            Text("J2ME Multi-Box", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                            Text(
+                                text = "$activeCount/8 Box đang treo • ${games.size} game",
+                                fontSize = 11.sp,
+                                color = Color(0xFF94A3B8)
+                            )
+                        }
+                    }
+                },
                 actions = {
-                    IconButton(onClick = onPickJarFile) {
-                        Icon(Icons.Default.UploadFile, contentDescription = "Nhập file .jar")
+                    FilledTonalButton(
+                        onClick = onPickJarFile,
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                        modifier = Modifier.padding(end = 4.dp)
+                    ) {
+                        Icon(Icons.Default.UploadFile, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("Thêm .jar", fontSize = 12.sp)
                     }
                     if (games.isNotEmpty()) {
-                        TextButton(onClick = { onOpenMacroEditor(games.first()) }) {
-                            Text("Macro")
+                        IconButton(onClick = { onOpenMacroEditor(games.first()) }) {
+                            Icon(Icons.Default.Keyboard, contentDescription = "Macro", tint = MaterialTheme.colorScheme.primary)
                         }
                     }
                 }
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { showCreateBoxDialog = true }) {
-                Icon(Icons.Default.Add, contentDescription = "Tạo Box mới")
-            }
+            ExtendedFloatingActionButton(
+                onClick = { showCreateBoxDialog = true },
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+                icon = { Icon(Icons.Default.Add, contentDescription = null) },
+                text = { Text("Tạo Box", fontWeight = FontWeight.Bold) }
+            )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
@@ -112,19 +159,56 @@ fun DashboardScreen(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(padding),
+                    .padding(padding)
+                    .padding(24.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Chưa có Box nào.", style = MaterialTheme.typography.titleMedium)
-                    Spacer(Modifier.height(8.dp))
-                    Text("1. Bấm biểu tượng Upload ở góc trên để thêm file .jar\n2. Bấm dấu + để tạo Box tài khoản mới")
+                Card(
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = BorderStroke(1.dp, Color(0xFF334155))
+                ) {
+                    Column(
+                        modifier = Modifier.padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Gamepad,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(48.dp)
+                        )
+                        Text(
+                            "Chưa có Box tài khoản nào",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            "Mỗi Box là 1 tài khoản độc lập, có thể treo ngầm cùng lúc và tự đăng nhập.",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 13.sp
+                        )
+                        Button(onClick = onPickJarFile, modifier = Modifier.fillMaxWidth()) {
+                            Icon(Icons.Default.UploadFile, contentDescription = null)
+                            Spacer(Modifier.width(8.dp))
+                            Text("Bước 1: Chọn file game .jar")
+                        }
+                        OutlinedButton(
+                            onClick = { showCreateBoxDialog = true },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = null)
+                            Spacer(Modifier.width(8.dp))
+                            Text("Bước 2: Tạo Box tài khoản")
+                        }
+                    }
                 }
             }
         } else {
             LazyVerticalGrid(
-                columns = GridCells.Adaptive(170.dp),
-                contentPadding = PaddingValues(12.dp),
+                columns = GridCells.Adaptive(172.dp),
+                contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 84.dp),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
                 modifier = Modifier
@@ -152,23 +236,42 @@ fun DashboardScreen(
 
         AlertDialog(
             onDismissRequest = { showCreateBoxDialog = false },
-            title = { Text("Tạo Box Tài Khoản Mới") },
+            title = { Text("Tạo Box Tài Khoản Mới", fontWeight = FontWeight.Bold) },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     if (games.isEmpty()) {
-                        Text("Vui lòng nhập ít nhất 1 file game .jar trước!", color = MaterialTheme.colorScheme.error)
+                        Text(
+                            "Vui lòng bấm 'Thêm .jar' để chọn file game Java trước!",
+                            color = MaterialTheme.colorScheme.error
+                        )
                     } else {
                         OutlinedTextField(
                             value = boxName,
                             onValueChange = { boxName = it },
-                            label = { Text("Tên Box (vd: Acc Chính, Buff 1)") }
+                            label = { Text("Tên Box (vd: Acc Chính, Buff 1)") },
+                            singleLine = true
                         )
                         OutlinedTextField(
                             value = note,
                             onValueChange = { note = it },
-                            label = { Text("Ghi chú") }
+                            label = { Text("Ghi chú (Server, cấp độ...)") },
+                            singleLine = true
                         )
-                        Text("Game: ${games.find { it.gameId == selectedGameId }?.title ?: ""}", fontWeight = FontWeight.Medium)
+                        Text("Chọn game:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        games.forEach { game ->
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { selectedGameId = game.gameId }
+                            ) {
+                                RadioButton(
+                                    selected = selectedGameId == game.gameId,
+                                    onClick = { selectedGameId = game.gameId }
+                                )
+                                Text(game.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                        }
                     }
                 }
             },
@@ -193,7 +296,12 @@ fun DashboardScreen(
             onDismissRequest = { renamingBox = null },
             title = { Text("Đổi tên Box") },
             text = {
-                OutlinedTextField(value = newName, onValueChange = { newName = it }, label = { Text("Tên mới") })
+                OutlinedTextField(
+                    value = newName,
+                    onValueChange = { newName = it },
+                    label = { Text("Tên mới") },
+                    singleLine = true
+                )
             },
             confirmButton = {
                 Button(onClick = {
@@ -219,10 +327,18 @@ private fun BoxCard(
 ) {
     val status = item.runtime?.status ?: BoxStatus.OFFLINE
     val statusColor = when (status) {
-        BoxStatus.ONLINE_FOREGROUND, BoxStatus.ONLINE_HEADLESS -> Color(0xFF16A34A)
-        BoxStatus.RECONNECTING, BoxStatus.STARTING -> Color(0xFFD97706)
-        BoxStatus.AWAITING_CAPTCHA -> Color(0xFFDC2626)
-        BoxStatus.OFFLINE -> Color.Gray
+        BoxStatus.ONLINE_FOREGROUND, BoxStatus.ONLINE_HEADLESS -> Color(0xFF22C55E)
+        BoxStatus.RECONNECTING, BoxStatus.STARTING -> Color(0xFFF59E0B)
+        BoxStatus.AWAITING_CAPTCHA -> Color(0xFFEF4444)
+        BoxStatus.OFFLINE -> Color(0xFF64748B)
+    }
+    val statusLabel = when (status) {
+        BoxStatus.ONLINE_FOREGROUND -> "ĐANG MỞ"
+        BoxStatus.ONLINE_HEADLESS -> "TREO NGẦM"
+        BoxStatus.STARTING -> "ĐANG BẬT"
+        BoxStatus.RECONNECTING -> "KẾT NỐI LẠI"
+        BoxStatus.AWAITING_CAPTCHA -> "CẦN CAPTCHA"
+        BoxStatus.OFFLINE -> "TẮT"
     }
     val isRunning = status != BoxStatus.OFFLINE
 
@@ -230,16 +346,25 @@ private fun BoxCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onZoomIn),
-        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(
+            width = if (isRunning) 1.5.dp else 1.dp,
+            color = if (isRunning) statusColor.copy(alpha = 0.7f) else Color(0xFF334155)
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Column(modifier = Modifier.padding(10.dp)) {
-            // Static snapshot or placeholder
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(100.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xFF1E293B)),
+                    .height(104.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(Color(0xFF0F172A), Color(0xFF1E293B))
+                        )
+                    ),
                 contentAlignment = Alignment.Center
             ) {
                 val snapBitmap = remember(item.snapshotPath) {
@@ -253,57 +378,111 @@ private fun BoxCard(
                         modifier = Modifier.fillMaxSize()
                     )
                 } else {
-                    Text(item.gameTitle, color = Color.LightGray, fontSize = 12.sp)
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            Icons.Default.Gamepad,
+                            contentDescription = null,
+                            tint = Color(0xFF475569),
+                            modifier = Modifier.size(28.dp)
+                        )
+                        Text(
+                            item.gameTitle,
+                            color = Color(0xFF94A3B8),
+                            fontSize = 11.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.padding(horizontal = 6.dp)
+                        )
+                    }
                 }
 
-                // Status badge
-                Box(
+                // Status badge pill
+                Surface(
+                    color = statusColor.copy(alpha = 0.92f),
+                    shape = RoundedCornerShape(20.dp),
                     modifier = Modifier
                         .align(Alignment.TopStart)
                         .padding(6.dp)
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(statusColor)
-                        .padding(horizontal = 6.dp, vertical = 2.dp)
                 ) {
-                    Text(
-                        text = if (isRunning) "${status.name} (${item.runtime?.memoryMb ?: 0}MB)" else "OFFLINE",
-                        color = Color.White,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(6.dp)
+                                .clip(CircleShape)
+                                .background(Color.White)
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            text = if (isRunning) "$statusLabel • ${item.runtime?.memoryMb ?: 0}MB" else statusLabel,
+                            color = Color.White,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             }
 
-            Spacer(Modifier.height(6.dp))
-            Text(item.box.name, fontWeight = FontWeight.Bold, maxLines = 1)
-            if (item.box.note.isNotBlank()) {
-                Text(item.box.note, fontSize = 11.sp, color = Color.Gray, maxLines = 1)
-            }
+            Spacer(Modifier.height(8.dp))
+            Text(
+                item.box.name,
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = item.box.note.ifBlank {
+                    if (item.hasAccount) "Đã lưu tài khoản mã hóa" else "Chưa gắn tài khoản"
+                },
+                fontSize = 11.sp,
+                color = if (item.hasAccount) Color(0xFF38BDF8) else Color(0xFF94A3B8),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
 
+            Spacer(Modifier.height(6.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                IconButton(onClick = if (isRunning) onStop else onZoomIn, modifier = Modifier.size(32.dp)) {
+                Button(
+                    onClick = if (isRunning) onStop else onZoomIn,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (isRunning) Color(0xFFDC2626) else Color(0xFF16A34A),
+                        contentColor = Color.White
+                    ),
+                    shape = RoundedCornerShape(10.dp),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
+                    modifier = Modifier.height(30.dp)
+                ) {
                     Icon(
                         if (isRunning) Icons.Default.Stop else Icons.Default.PlayArrow,
-                        contentDescription = if (isRunning) "Tắt Box" else "Mở Box",
-                        tint = if (isRunning) Color(0xFFDC2626) else Color(0xFF16A34A)
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp)
                     )
+                    Spacer(Modifier.width(3.dp))
+                    Text(if (isRunning) "Tắt" else "Vào", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
-                IconButton(onClick = onOpenAccount, modifier = Modifier.size(32.dp)) {
-                    Icon(
-                        Icons.Default.Key,
-                        contentDescription = "Tài khoản",
-                        tint = if (item.hasAccount) MaterialTheme.colorScheme.primary else Color.Gray
-                    )
-                }
-                IconButton(onClick = onRename, modifier = Modifier.size(32.dp)) {
-                    Icon(Icons.Default.Edit, contentDescription = "Đổi tên")
-                }
-                IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
-                    Icon(Icons.Default.Delete, contentDescription = "Xóa Box")
+
+                Row {
+                    IconButton(onClick = onOpenAccount, modifier = Modifier.size(28.dp)) {
+                        Icon(
+                            Icons.Default.Key,
+                            contentDescription = "Tài khoản",
+                            tint = if (item.hasAccount) MaterialTheme.colorScheme.primary else Color(0xFF64748B),
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                    IconButton(onClick = onRename, modifier = Modifier.size(28.dp)) {
+                        Icon(Icons.Default.Edit, contentDescription = "Đổi tên", tint = Color(0xFF94A3B8), modifier = Modifier.size(16.dp))
+                    }
+                    IconButton(onClick = onDelete, modifier = Modifier.size(28.dp)) {
+                        Icon(Icons.Default.Delete, contentDescription = "Xóa Box", tint = Color(0xFF94A3B8), modifier = Modifier.size(16.dp))
+                    }
                 }
             }
         }
