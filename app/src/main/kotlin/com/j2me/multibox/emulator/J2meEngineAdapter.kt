@@ -8,6 +8,8 @@ import com.j2me.multibox.macro.KeyInjector
 import com.j2me.multibox.service.HeadlessRenderController
 import com.j2me.multibox.storage.BoxConfig
 import ru.playsoftware.j2meloader.config.Config
+import ru.playsoftware.j2meloader.config.ProfileModel
+import ru.playsoftware.j2meloader.config.ProfilesManager
 import ru.woesss.j2me.jar.Descriptor
 import java.io.File
 import java.util.jar.JarFile
@@ -70,6 +72,25 @@ class J2meEngineAdapter(
                 jf.getInputStream(entry).bufferedReader().use { it.readText() }
             }
             Descriptor(manifestText, false).writeTo(confFile)
+        }
+
+        // 4. Ensure ProfileModel config.json exists in {boxRoot}/configs/{boxId}/config.json
+        val boxRoot = convertedDir.parentFile?.parentFile
+        if (boxRoot != null) {
+            val configDir = File(boxRoot, "configs/$boxId")
+            val configJson = File(configDir, Config.MIDLET_CONFIG_FILE.trimStart('/'))
+            if (!configJson.exists()) {
+                configDir.mkdirs()
+                val profile = ProfileModel(configDir).apply {
+                    screenWidth = config.screenWidth
+                    screenHeight = config.screenHeight
+                    showKeyboard = config.showVirtualKeypad
+                    fpsLimit = config.fpsLimit
+                    disablePause = true
+                    touchInput = true
+                }
+                ProfilesManager.saveConfig(profile)
+            }
         }
         return convertedDir
     }

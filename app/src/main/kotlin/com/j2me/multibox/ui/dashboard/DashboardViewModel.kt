@@ -169,7 +169,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             try {
                 // Ensure .jar -> .dex conversion completes before launching BoxActivity
                 val rmsDir = storage.getRmsDir(item.box.boxId)
-                val convertedDir = java.io.File(storage.getBoxPaths(item.box.boxId).boxRoot, "converted")
+                val convertedDir = java.io.File(storage.getBoxPaths(item.box.boxId).boxRoot, "converted/${item.box.boxId}")
                 com.j2me.multibox.emulator.J2meEngineAdapter(
                     boxId = item.box.boxId,
                     jarPath = item.jarPath,

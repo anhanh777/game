@@ -52,10 +52,10 @@ abstract class BoxActivity : MicroActivity() {
         val rmsDir = storage.getRmsDir(boxId)
         AppClassLoader.setCustomDataDir(rmsDir.absolutePath)
 
-        val convertedDir = File(storage.getBoxPaths(boxId).boxRoot, "converted")
+        val convertedDir = File(storage.getBoxPaths(boxId).boxRoot, "converted/$boxId")
         val jarPath = intent.getStringExtra(BoxRunnerService.EXTRA_JAR_PATH)
         if (intent.data == null) {
-            if (!File(convertedDir, "converted.dex").exists() && !jarPath.isNullOrBlank()) {
+            if ((!File(convertedDir, "converted.dex").exists() || !File(storage.getBoxPaths(boxId).boxRoot, "configs/$boxId/config.json").exists()) && !jarPath.isNullOrBlank()) {
                 val adapter = BoxRunnerService.currentEngine ?: com.j2me.multibox.emulator.J2meEngineAdapter(
                     boxId = boxId,
                     jarPath = jarPath,
@@ -64,7 +64,7 @@ abstract class BoxActivity : MicroActivity() {
                 )
                 adapter.prepareBoxEnvironment(this, convertedDir)
             }
-            intent.data = Uri.fromFile(convertedDir)
+            intent.data = Uri.parse(convertedDir.absolutePath)
             intent.putExtra(Constants.KEY_MIDLET_NAME, intent.getStringExtra(BoxRunnerService.EXTRA_BOX_NAME) ?: boxId)
         }
 

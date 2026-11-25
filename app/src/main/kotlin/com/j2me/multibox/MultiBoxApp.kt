@@ -4,7 +4,10 @@ import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.os.Build
+import androidx.preference.PreferenceManager
 import ru.playsoftware.j2meloader.EmulatorApplication
+import ru.playsoftware.j2meloader.util.Constants
+import java.io.File
 
 class MultiBoxApp : Application() {
 
@@ -16,7 +19,16 @@ class MultiBoxApp : Application() {
     override fun onCreate() {
         super.onCreate()
         EmulatorApplication.init(this)
+        initEmulatorDir()
         createNotificationChannels()
+    }
+
+    private fun initEmulatorDir() {
+        val sp = PreferenceManager.getDefaultSharedPreferences(this)
+        if (!sp.contains(Constants.PREF_EMULATOR_DIR)) {
+            val envDir = File(filesDir, "j2me_env").apply { mkdirs() }
+            sp.edit().putString(Constants.PREF_EMULATOR_DIR, envDir.absolutePath).apply()
+        }
     }
 
     private fun createNotificationChannels() {
