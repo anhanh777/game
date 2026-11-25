@@ -17,9 +17,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -96,6 +95,7 @@ fun DashboardScreen(
     var showGamesManagerDialog by remember { mutableStateOf(false) }
     var showExitConfirmDialog by remember { mutableStateOf(false) }
     var renamingBox by remember { mutableStateOf<BoxUiItem?>(null) }
+    var stoppingBox by remember { mutableStateOf<BoxUiItem?>(null) }
 
     val activeCount = boxes.count { it.runtime?.status != null && it.runtime.status != BoxStatus.OFFLINE }
 
@@ -219,10 +219,8 @@ fun DashboardScreen(
                 }
             }
         } else {
-            LazyVerticalGrid(
-                columns = GridCells.Adaptive(172.dp),
+            LazyColumn(
                 contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 84.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
                 modifier = Modifier
                     .fillMaxSize()
@@ -232,7 +230,7 @@ fun DashboardScreen(
                     BoxCard(
                         item = item,
                         onZoomIn = { viewModel.startAndZoomBox(item) },
-                        onStop = { viewModel.stopBox(item.box.boxId) },
+                        onStop = { stoppingBox = item },
                         onRename = { renamingBox = item },
                         onDelete = { viewModel.deleteBox(item.box.boxId) },
                         onOpenAccount = { onOpenAccountVault(item) }
@@ -351,6 +349,26 @@ fun DashboardScreen(
                         )
                     }
                 }
+            }
+        )
+    }
+
+    stoppingBox?.let { target ->
+        AlertDialog(
+            onDismissRequest = { stoppingBox = null },
+            title = { Text("Tắt ${target.box.name}?", fontWeight = FontWeight.Bold) },
+            text = { Text("Box đang chạy ngầm sẽ dừng hoạt động. Bạn có chắc muốn tắt không?") },
+            confirmButton = {
+                Button(
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626)),
+                    onClick = {
+                        viewModel.stopBox(target.box.boxId)
+                        stoppingBox = null
+                    }
+                ) { Text("Có, tắt Box", color = Color.White) }
+            },
+            dismissButton = {
+                TextButton(onClick = { stoppingBox = null }) { Text("Không") }
             }
         )
     }
@@ -483,96 +501,100 @@ private fun BoxCard(
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
-        Column(modifier = Modifier.padding(10.dp)) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(104.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(
-                        Brush.verticalGradient(
-                            listOf(Color(0xFF0F172A), Color(0xFF1E293B))
-                        )
-                    ),
-                contentAlignment = Alignment.Center
+        Column(modifier = Modifier.padding(12.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                val snapBitmap = remember(item.snapshotPath) {
-                    item.snapshotPath?.let { BitmapFactory.decodeFile(it)?.asImageBitmap() }
-                }
-                if (snapBitmap != null) {
-                    Image(
-                        bitmap = snapBitmap,
-                        contentDescription = null,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize()
-                    )
-                } else {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Box(
+                    modifier = Modifier
+                        .size(width = 96.dp, height = 74.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(
+                            Brush.verticalGradient(
+                                listOf(Color(0xFF0F172A), Color(0xFF1E293B))
+                            )
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    val snapBitmap = remember(item.snapshotPath) {
+                        item.snapshotPath?.let { BitmapFactory.decodeFile(it)?.asImageBitmap() }
+                    }
+                    if (snapBitmap != null) {
+                        Image(
+                            bitmap = snapBitmap,
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } else {
                         Icon(
                             Icons.Default.Gamepad,
                             contentDescription = null,
                             tint = Color(0xFF475569),
                             modifier = Modifier.size(28.dp)
                         )
+                    }
+                }
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Surface(
+                            color = statusColor.copy(alpha = 0.92f),
+                            shape = RoundedCornerShape(20.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(6.dp)
+                                        .clip(CircleShape)
+                                        .background(Color.White)
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                Text(
+                                    text = if (isRunning) "$statusLabel • ${item.runtime?.memoryMb ?: 0}MB" else statusLabel,
+                                    color = Color.White,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
                         Text(
                             item.gameTitle,
                             color = Color(0xFF94A3B8),
                             fontSize = 11.sp,
                             maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.padding(horizontal = 6.dp)
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
-                }
-
-                // Status badge pill
-                Surface(
-                    color = statusColor.copy(alpha = 0.92f),
-                    shape = RoundedCornerShape(20.dp),
-                    modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .padding(6.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(6.dp)
-                                .clip(CircleShape)
-                                .background(Color.White)
-                        )
-                        Spacer(Modifier.width(4.dp))
-                        Text(
-                            text = if (isRunning) "$statusLabel • ${item.runtime?.memoryMb ?: 0}MB" else statusLabel,
-                            color = Color.White,
-                            fontSize = 9.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        item.box.name,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = item.box.note.ifBlank {
+                            if (item.hasAccount) "Đã lưu tài khoản mã hóa" else "Chưa gắn tài khoản"
+                        },
+                        fontSize = 11.sp,
+                        color = if (item.hasAccount) Color(0xFF38BDF8) else Color(0xFF94A3B8),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
             }
 
             Spacer(Modifier.height(8.dp))
-            Text(
-                item.box.name,
-                fontWeight = FontWeight.Bold,
-                fontSize = 14.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Text(
-                text = item.box.note.ifBlank {
-                    if (item.hasAccount) "Đã lưu tài khoản mã hóa" else "Chưa gắn tài khoản"
-                },
-                fontSize = 11.sp,
-                color = if (item.hasAccount) Color(0xFF38BDF8) else Color(0xFF94A3B8),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-
-            Spacer(Modifier.height(6.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -585,32 +607,32 @@ private fun BoxCard(
                         contentColor = Color.White
                     ),
                     shape = RoundedCornerShape(10.dp),
-                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
-                    modifier = Modifier.height(30.dp)
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 2.dp),
+                    modifier = Modifier.height(32.dp)
                 ) {
                     Icon(
                         if (isRunning) Icons.Default.Stop else Icons.Default.PlayArrow,
                         contentDescription = null,
-                        modifier = Modifier.size(14.dp)
+                        modifier = Modifier.size(15.dp)
                     )
-                    Spacer(Modifier.width(3.dp))
-                    Text(if (isRunning) "Tắt" else "Vào", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.width(4.dp))
+                    Text(if (isRunning) "Tắt" else "Vào Game", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
 
-                Row {
-                    IconButton(onClick = onOpenAccount, modifier = Modifier.size(28.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    IconButton(onClick = onOpenAccount, modifier = Modifier.size(32.dp)) {
                         Icon(
                             Icons.Default.Key,
                             contentDescription = "Tài khoản",
                             tint = if (item.hasAccount) MaterialTheme.colorScheme.primary else Color(0xFF64748B),
-                            modifier = Modifier.size(16.dp)
+                            modifier = Modifier.size(18.dp)
                         )
                     }
-                    IconButton(onClick = onRename, modifier = Modifier.size(28.dp)) {
-                        Icon(Icons.Default.Edit, contentDescription = "Đổi tên", tint = Color(0xFF94A3B8), modifier = Modifier.size(16.dp))
+                    IconButton(onClick = onRename, modifier = Modifier.size(32.dp)) {
+                        Icon(Icons.Default.Edit, contentDescription = "Đổi tên", tint = Color(0xFF94A3B8), modifier = Modifier.size(18.dp))
                     }
-                    IconButton(onClick = onDelete, modifier = Modifier.size(28.dp)) {
-                        Icon(Icons.Default.Delete, contentDescription = "Xóa Box", tint = Color(0xFF94A3B8), modifier = Modifier.size(16.dp))
+                    IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
+                        Icon(Icons.Default.Delete, contentDescription = "Xóa Box", tint = Color(0xFF94A3B8), modifier = Modifier.size(18.dp))
                     }
                 }
             }

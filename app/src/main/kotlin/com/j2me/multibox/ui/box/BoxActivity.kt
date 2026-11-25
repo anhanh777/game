@@ -291,9 +291,10 @@ abstract class BoxActivity : MicroActivity() {
             engine.detachSurface()
         }
 
-        // Bring MainActivity Dashboard to front while keeping this :box_N process & MIDlet alive
+        // Push this :box_N task to back, then bring MainActivity Dashboard to front
+        moveTaskToBack(true)
         val dashboardIntent = Intent(this, MainActivity::class.java).apply {
-            addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or Intent.FLAG_ACTIVITY_NEW_TASK)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
         }
         startActivity(dashboardIntent)
     }
