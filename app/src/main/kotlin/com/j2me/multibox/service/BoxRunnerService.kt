@@ -218,6 +218,9 @@ abstract class BoxRunnerService : Service() {
     }
 
     override fun onDestroy() {
+        currentEngine?.stopMidlet()
+        currentEngine = null
+        currentBoxId = null
         scope.cancel()
         wakeLock?.takeIf { it.isHeld }?.release()
         wifiLock?.takeIf { it.isHeld }?.release()

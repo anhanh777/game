@@ -101,7 +101,11 @@ class MainActivity : ComponentActivity() {
                                 jarPickerLauncher.launch(arrayOf("application/java-archive", "application/octet-stream", "*/*"))
                             },
                             onOpenAccountVault = { item -> selectedAccountBox = item },
-                            onOpenMacroEditor = { game -> selectedMacroGame = game }
+                            onOpenMacroEditor = { game -> selectedMacroGame = game },
+                            onExitApp = {
+                                finishAffinity()
+                                android.os.Process.killProcess(android.os.Process.myPid())
+                            }
                         )
                     }
                 }

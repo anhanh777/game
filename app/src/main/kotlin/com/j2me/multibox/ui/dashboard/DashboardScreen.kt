@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.Gamepad
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.UploadFile
 import androidx.compose.material3.AlertDialog
@@ -82,7 +83,8 @@ fun DashboardScreen(
     viewModel: DashboardViewModel,
     onPickJarFile: () -> Unit,
     onOpenAccountVault: (BoxUiItem) -> Unit,
-    onOpenMacroEditor: (GameEntity) -> Unit
+    onOpenMacroEditor: (GameEntity) -> Unit,
+    onExitApp: () -> Unit
 ) {
     val boxes by viewModel.boxItems.collectAsState()
     val games by viewModel.games.collectAsState()
@@ -91,6 +93,7 @@ fun DashboardScreen(
     val snackbarHostState = remember { SnackbarHostState() }
 
     var showCreateBoxDialog by remember { mutableStateOf(false) }
+    var showExitConfirmDialog by remember { mutableStateOf(false) }
     var renamingBox by remember { mutableStateOf<BoxUiItem?>(null) }
 
     val activeCount = boxes.count { it.runtime?.status != null && it.runtime.status != BoxStatus.OFFLINE }
@@ -142,6 +145,13 @@ fun DashboardScreen(
                         IconButton(onClick = { onOpenMacroEditor(games.first()) }) {
                             Icon(Icons.Default.Keyboard, contentDescription = "Macro", tint = MaterialTheme.colorScheme.primary)
                         }
+                    }
+                    IconButton(onClick = { showExitConfirmDialog = true }) {
+                        Icon(
+                            Icons.Default.PowerSettingsNew,
+                            contentDescription = "Thoát app",
+                            tint = Color(0xFFEF4444)
+                        )
                     }
                 }
             )
@@ -340,6 +350,27 @@ fun DashboardScreen(
                         )
                     }
                 }
+            }
+        )
+    }
+
+    if (showExitConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showExitConfirmDialog = false },
+            title = { Text("Tắt hoàn toàn ứng dụng?", fontWeight = FontWeight.Bold) },
+            text = { Text("Toàn bộ các Box đang treo ngầm sẽ dừng hoạt động và thoát app hoàn toàn.") },
+            confirmButton = {
+                Button(
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626)),
+                    onClick = {
+                        showExitConfirmDialog = false
+                        viewModel.stopAllBoxes()
+                        onExitApp()
+                    }
+                ) { Text("Tắt luôn", color = Color.White) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showExitConfirmDialog = false }) { Text("Hủy") }
             }
         )
     }

@@ -222,6 +222,16 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         slotManager.releaseSlot(boxId)
     }
 
+    fun stopAllBoxes() {
+        val ctx = getApplication<Application>()
+        for (slot in 1..8) {
+            val intent = Intent(ctx, BoxRunnerService.serviceClassForSlot(slot))
+            runCatching { ctx.stopService(intent) }
+        }
+        boxItems.value.forEach { slotManager.releaseSlot(it.box.boxId) }
+        runtimeMap.value = emptyMap()
+    }
+
     fun saveAccount(boxId: String, username: CharArray, password: CharArray, note: String) {
         viewModelScope.launch(Dispatchers.IO) {
             vault.saveCredentials(boxId, username, password, note)
