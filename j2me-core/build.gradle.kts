@@ -9,6 +9,9 @@ android {
     defaultConfig {
         minSdk = 26
         buildConfigField("boolean", "FULL_EMULATOR", "true")
+        buildConfigField("String", "VERSION_NAME", "\"1.8.2\"")
+        buildConfigField("String", "APPLICATION_ID", "\"com.j2me.multibox\"")
+        resValue("string", "app_name", "J2ME Multi-Box")
     }
 
     buildTypes {
