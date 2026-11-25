@@ -49,6 +49,8 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     private val runtimeMap = MutableStateFlow<Map<String, BoxRuntimeInfo>>(emptyMap())
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage
+    private val _loadingMessage = MutableStateFlow<String?>(null)
+    val loadingMessage: StateFlow<String?> = _loadingMessage
 
     val games: StateFlow<List<GameEntity>> = db.gameDao().observeGames()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -166,6 +168,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         }
 
         viewModelScope.launch(Dispatchers.IO) {
+            _loadingMessage.value = "Đang mở ${item.box.name}..."
             try {
                 // Ensure .jar -> .dex conversion completes before launching BoxActivity
                 val rmsDir = storage.getRmsDir(item.box.boxId)
@@ -203,6 +206,8 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             } catch (e: Exception) {
                 slotManager.releaseSlot(item.box.boxId)
                 _errorMessage.value = "Lỗi khởi chạy game: ${e.message}"
+            } finally {
+                _loadingMessage.value = null
             }
         }
     }

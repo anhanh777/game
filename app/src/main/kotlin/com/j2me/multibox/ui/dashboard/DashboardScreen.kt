@@ -37,6 +37,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilledTonalButton
@@ -86,6 +87,7 @@ fun DashboardScreen(
     val boxes by viewModel.boxItems.collectAsState()
     val games by viewModel.games.collectAsState()
     val errorMsg by viewModel.errorMessage.collectAsState()
+    val loadingMsg by viewModel.loadingMessage.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
     var showCreateBoxDialog by remember { mutableStateOf(false) }
@@ -311,6 +313,33 @@ fun DashboardScreen(
             },
             dismissButton = {
                 TextButton(onClick = { renamingBox = null }) { Text("Hủy") }
+            }
+        )
+    }
+
+    loadingMsg?.let { msg ->
+        AlertDialog(
+            onDismissRequest = {},
+            confirmButton = {},
+            text = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    modifier = Modifier.padding(vertical = 8.dp)
+                ) {
+                    CircularProgressIndicator(
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(32.dp)
+                    )
+                    Column {
+                        Text(msg, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        Text(
+                            "Lần đầu chạy game có thể mất 2-3 giây...",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
             }
         )
     }
