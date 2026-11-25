@@ -217,6 +217,10 @@ abstract class BoxActivity : MicroActivity() {
             text = "Giữ máy đứng (chỉ ngang khung game)"
             isChecked = currentProfile.orientation != 3
         }
+        val smoothModeCheck = CheckBox(this).apply {
+            text = "Chế độ 2D siêu mượt (giảm lag cảm ứng)"
+            isChecked = currentProfile.graphicsMode == 3
+        }
 
         container.addView(TextView(this).apply { text = "Khung dọc:" })
         container.addView(portraitRow)
@@ -231,6 +235,7 @@ abstract class BoxActivity : MicroActivity() {
         container.addView(aspectCheck)
         container.addView(keypadCheck)
         container.addView(lockPortraitCheck)
+        container.addView(smoothModeCheck)
 
         val scrollView = ScrollView(this).apply { addView(container) }
 
@@ -256,6 +261,11 @@ abstract class BoxActivity : MicroActivity() {
                 currentProfile.showKeyboard = keypadCheck.isChecked
                 currentProfile.orientation = if (lockPortraitCheck.isChecked) 2 else 0
                 currentProfile.screenGravity = if (w > h) 2 else 1 // Center in top display area when landscape frame
+                currentProfile.graphicsMode = if (smoothModeCheck.isChecked) 3 else 1
+                currentProfile.parallelRedrawScreen = smoothModeCheck.isChecked
+                currentProfile.immediateMode = true
+                currentProfile.fpsLimit = 0
+                currentProfile.vkFeedback = true
                 currentProfile.disablePause = true
                 ProfilesManager.saveConfig(currentProfile)
 

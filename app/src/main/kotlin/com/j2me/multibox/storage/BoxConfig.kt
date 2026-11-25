@@ -6,7 +6,7 @@ data class BoxConfig(
     val screenWidth: Int = 240,
     val screenHeight: Int = 320,
     val showVirtualKeypad: Boolean = true,
-    val fpsLimit: Int = 30,
+    val fpsLimit: Int = 0,
     val keepAwake: Boolean = true
 ) {
     fun toJson(): String = JSONObject().apply {

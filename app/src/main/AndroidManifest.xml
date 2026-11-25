@@ -34,28 +34,28 @@
 
         <!-- Isolated Box Worker Processes (:box_1 .. :box_8) -->
         <service android:name=".service.BoxRunnerService1" android:process=":box_1" android:exported="false" android:foregroundServiceType="dataSync" />
-        <activity android:name=".ui.box.BoxActivity1" android:process=":box_1" android:exported="false" android:launchMode="singleInstance" android:configChanges="orientation|screenSize|keyboardHidden" />
+        <activity android:name=".ui.box.BoxActivity1" android:process=":box_1" android:taskAffinity="com.j2me.multibox.box1" android:exported="false" android:launchMode="singleTask" android:configChanges="orientation|screenSize|keyboardHidden" />
 
         <service android:name=".service.BoxRunnerService2" android:process=":box_2" android:exported="false" android:foregroundServiceType="dataSync" />
-        <activity android:name=".ui.box.BoxActivity2" android:process=":box_2" android:exported="false" android:launchMode="singleInstance" android:configChanges="orientation|screenSize|keyboardHidden" />
+        <activity android:name=".ui.box.BoxActivity2" android:process=":box_2" android:taskAffinity="com.j2me.multibox.box2" android:exported="false" android:launchMode="singleTask" android:configChanges="orientation|screenSize|keyboardHidden" />
 
         <service android:name=".service.BoxRunnerService3" android:process=":box_3" android:exported="false" android:foregroundServiceType="dataSync" />
-        <activity android:name=".ui.box.BoxActivity3" android:process=":box_3" android:exported="false" android:launchMode="singleInstance" android:configChanges="orientation|screenSize|keyboardHidden" />
+        <activity android:name=".ui.box.BoxActivity3" android:process=":box_3" android:taskAffinity="com.j2me.multibox.box3" android:exported="false" android:launchMode="singleTask" android:configChanges="orientation|screenSize|keyboardHidden" />
 
         <service android:name=".service.BoxRunnerService4" android:process=":box_4" android:exported="false" android:foregroundServiceType="dataSync" />
-        <activity android:name=".ui.box.BoxActivity4" android:process=":box_4" android:exported="false" android:launchMode="singleInstance" android:configChanges="orientation|screenSize|keyboardHidden" />
+        <activity android:name=".ui.box.BoxActivity4" android:process=":box_4" android:taskAffinity="com.j2me.multibox.box4" android:exported="false" android:launchMode="singleTask" android:configChanges="orientation|screenSize|keyboardHidden" />
 
         <service android:name=".service.BoxRunnerService5" android:process=":box_5" android:exported="false" android:foregroundServiceType="dataSync" />
-        <activity android:name=".ui.box.BoxActivity5" android:process=":box_5" android:exported="false" android:launchMode="singleInstance" android:configChanges="orientation|screenSize|keyboardHidden" />
+        <activity android:name=".ui.box.BoxActivity5" android:process=":box_5" android:taskAffinity="com.j2me.multibox.box5" android:exported="false" android:launchMode="singleTask" android:configChanges="orientation|screenSize|keyboardHidden" />
 
         <service android:name=".service.BoxRunnerService6" android:process=":box_6" android:exported="false" android:foregroundServiceType="dataSync" />
-        <activity android:name=".ui.box.BoxActivity6" android:process=":box_6" android:exported="false" android:launchMode="singleInstance" android:configChanges="orientation|screenSize|keyboardHidden" />
+        <activity android:name=".ui.box.BoxActivity6" android:process=":box_6" android:taskAffinity="com.j2me.multibox.box6" android:exported="false" android:launchMode="singleTask" android:configChanges="orientation|screenSize|keyboardHidden" />
 
         <service android:name=".service.BoxRunnerService7" android:process=":box_7" android:exported="false" android:foregroundServiceType="dataSync" />
-        <activity android:name=".ui.box.BoxActivity7" android:process=":box_7" android:exported="false" android:launchMode="singleInstance" android:configChanges="orientation|screenSize|keyboardHidden" />
+        <activity android:name=".ui.box.BoxActivity7" android:process=":box_7" android:taskAffinity="com.j2me.multibox.box7" android:exported="false" android:launchMode="singleTask" android:configChanges="orientation|screenSize|keyboardHidden" />
 
         <service android:name=".service.BoxRunnerService8" android:process=":box_8" android:exported="false" android:foregroundServiceType="dataSync" />
-        <activity android:name=".ui.box.BoxActivity8" android:process=":box_8" android:exported="false" android:launchMode="singleInstance" android:configChanges="orientation|screenSize|keyboardHidden" />
+        <activity android:name=".ui.box.BoxActivity8" android:process=":box_8" android:taskAffinity="com.j2me.multibox.box8" android:exported="false" android:launchMode="singleTask" android:configChanges="orientation|screenSize|keyboardHidden" />
 
     </application>
 </manifest>

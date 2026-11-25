@@ -104,7 +104,11 @@ class J2meEngineAdapter(
                     screenWidth = config.screenWidth
                     screenHeight = config.screenHeight
                     showKeyboard = config.showVirtualKeypad
-                    fpsLimit = config.fpsLimit
+                    fpsLimit = 0
+                    graphicsMode = 3 // Hardware-accelerated 2D Canvas for zero touch/input lag
+                    parallelRedrawScreen = true
+                    immediateMode = true
+                    vkFeedback = true
                     disablePause = true
                     touchInput = true
                 }
