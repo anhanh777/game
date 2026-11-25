@@ -1,0 +1,21 @@
+# Gradle & Android
+.gradle/
+build/
+*/build/
+local.properties
+*.iml
+.idea/
+captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aab
+*.ap_
+*.dex
+
+# Superpowers scratch
+.superpowers/
+
+# OS
+.DS_Store
+Thumbs.db
