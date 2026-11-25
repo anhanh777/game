@@ -7,6 +7,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.net.Uri
 import android.os.Build
+import android.provider.OpenableColumns
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.j2me.multibox.data.db.AppDatabase
@@ -109,21 +110,50 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     fun importJar(uri: Uri, title: String) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
+                val resolver = getApplication<Application>().contentResolver
+                val realFileName = queryDisplayName(resolver, uri)
                 val gameId = "game_${UUID.randomUUID().toString().take(8)}"
-                val stream = getApplication<Application>().contentResolver.openInputStream(uri)
+                val stream = resolver.openInputStream(uri)
                     ?: throw IllegalStateException("Cannot open selected file")
                 val savedFile = stream.use { storage.importJarFile(gameId, it) }
+
+                val resolvedTitle = title.ifBlank {
+                    realFileName?.removeSuffix(".jar")?.removeSuffix(".JAR")
+                        ?: savedFile.nameWithoutExtension
+                }
 
                 db.gameDao().upsertGame(
                     GameEntity(
                         gameId = gameId,
-                        title = title.ifBlank { savedFile.nameWithoutExtension },
+                        title = resolvedTitle,
                         jarPath = savedFile.absolutePath
                     )
                 )
             } catch (e: Exception) {
                 _errorMessage.value = "Lỗi nhập file .jar: ${e.message}"
             }
+        }
+    }
+
+    private fun queryDisplayName(resolver: android.content.ContentResolver, uri: Uri): String? {
+        resolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+            if (cursor.moveToFirst()) {
+                val idx = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                if (idx >= 0) return cursor.getString(idx)
+            }
+        }
+        return uri.lastPathSegment?.substringAfterLast('/')
+    }
+
+    fun deleteGame(game: GameEntity) {
+        viewModelScope.launch(Dispatchers.IO) {
+            // Stop and clean up all boxes linked to this game
+            boxItems.value.filter { it.box.gameId == game.gameId }.forEach { item ->
+                stopBox(item.box.boxId)
+                storage.deleteBoxSandbox(item.box.boxId)
+            }
+            db.gameDao().deleteGame(game.gameId)
+            runCatching { java.io.File(game.jarPath).delete() }
         }
     }
 

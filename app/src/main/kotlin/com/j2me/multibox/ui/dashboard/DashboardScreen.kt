@@ -93,6 +93,7 @@ fun DashboardScreen(
     val snackbarHostState = remember { SnackbarHostState() }
 
     var showCreateBoxDialog by remember { mutableStateOf(false) }
+    var showGamesManagerDialog by remember { mutableStateOf(false) }
     var showExitConfirmDialog by remember { mutableStateOf(false) }
     var renamingBox by remember { mutableStateOf<BoxUiItem?>(null) }
 
@@ -133,13 +134,13 @@ fun DashboardScreen(
                 },
                 actions = {
                     FilledTonalButton(
-                        onClick = onPickJarFile,
+                        onClick = { showGamesManagerDialog = true },
                         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
                         modifier = Modifier.padding(end = 4.dp)
                     ) {
                         Icon(Icons.Default.UploadFile, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(Modifier.width(4.dp))
-                        Text("Thêm .jar", fontSize = 12.sp)
+                        Text("Game (${games.size})", fontSize = 12.sp)
                     }
                     if (games.isNotEmpty()) {
                         IconButton(onClick = { onOpenMacroEditor(games.first()) }) {
@@ -371,6 +372,74 @@ fun DashboardScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showExitConfirmDialog = false }) { Text("Hủy") }
+            }
+        )
+    }
+
+    if (showGamesManagerDialog) {
+        AlertDialog(
+            onDismissRequest = { showGamesManagerDialog = false },
+            title = { Text("Danh sách Game (.jar)", fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (games.isEmpty()) {
+                        Text(
+                            "Chưa có game nào được thêm.",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    } else {
+                        games.forEach { game ->
+                            Card(
+                                colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            game.title,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 14.sp,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        Text(
+                                            text = "${boxes.count { it.box.gameId == game.gameId }} Box đang dùng",
+                                            fontSize = 11.sp,
+                                            color = Color(0xFF94A3B8)
+                                        )
+                                    }
+                                    IconButton(onClick = { viewModel.deleteGame(game) }) {
+                                        Icon(
+                                            Icons.Default.Delete,
+                                            contentDescription = "Xóa game",
+                                            tint = Color(0xFFEF4444)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    showGamesManagerDialog = false
+                    onPickJarFile()
+                }) {
+                    Icon(Icons.Default.UploadFile, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Thêm .jar mới")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showGamesManagerDialog = false }) { Text("Đóng") }
             }
         )
     }
