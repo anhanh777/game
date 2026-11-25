@@ -13,6 +13,7 @@ import android.widget.LinearLayout
 import com.j2me.multibox.service.BoxRunnerService
 import com.j2me.multibox.storage.BoxStorageManager
 import com.j2me.multibox.ui.MainActivity
+import ru.playsoftware.j2meloader.util.Constants
 import java.io.File
 import java.io.FileOutputStream
 import javax.microedition.shell.AppClassLoader
@@ -56,7 +57,7 @@ abstract class BoxActivity : MicroActivity() {
             val convertedDir = File(storage.getBoxPaths(boxId).boxRoot, "converted")
             engine.prepareBoxEnvironment(this, convertedDir)
             intent.data = Uri.fromFile(convertedDir)
-            intent.putExtra(KEY_MIDLET_NAME, intent.getStringExtra(BoxRunnerService.EXTRA_BOX_NAME) ?: boxId)
+            intent.putExtra(Constants.KEY_MIDLET_NAME, intent.getStringExtra(BoxRunnerService.EXTRA_BOX_NAME) ?: boxId)
         }
 
         super.onCreate(savedInstanceState)

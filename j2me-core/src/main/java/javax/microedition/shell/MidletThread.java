@@ -97,7 +97,7 @@ public class MidletThread extends HandlerThread implements Handler.Callback {
 			instance.handler.obtainMessage(START).sendToTarget();
 	}
 
-	static void destroyApp() {
+	public static void destroyApp() {
 		Thread.setDefaultUncaughtExceptionHandler(uncaughtExceptionHandler);
 		new Thread(() -> {
 			try {

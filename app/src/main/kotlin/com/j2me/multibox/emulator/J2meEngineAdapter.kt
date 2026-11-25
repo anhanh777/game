@@ -1,5 +1,6 @@
 package com.j2me.multibox.emulator
 
+import android.app.Application
 import android.content.Context
 import android.graphics.Bitmap
 import android.view.Surface
@@ -41,7 +42,7 @@ class J2meEngineAdapter(
         val dexMarker = File(convertedDir, "classes.dex")
         if (!dexMarker.exists()) {
             convertedDir.mkdirs()
-            val installer = AppInstaller(jarPath, null, context.applicationContext, null)
+            val installer = AppInstaller(jarPath, null, context.applicationContext as Application, null)
             installer.loadInfo(null)
             // Note: AppInstaller converts JAR -> DEX into target dir using dexlib AndroidProducer
         }

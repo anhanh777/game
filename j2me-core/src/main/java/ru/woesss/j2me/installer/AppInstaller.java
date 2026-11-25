@@ -76,7 +76,7 @@ public class AppInstaller {
 	private AppItem currentApp;
 	private File srcFile;
 
-	AppInstaller(String path, Uri uri, Application context, AppRepository appRepository) {
+	public AppInstaller(String path, Uri uri, Application context, AppRepository appRepository) {
 		id = -1;
 		this.appRepository = appRepository;
 		if (path != null) srcFile = new File(path);
@@ -105,7 +105,7 @@ public class AppInstaller {
 	}
 
 	/** Load and check app info from source */
-	void loadInfo(SingleEmitter<Integer> emitter) throws IOException, ConverterException {
+	public void loadInfo(SingleEmitter<Integer> emitter) throws IOException, ConverterException {
 		if (id != -1) {
 			currentApp = appRepository.get(id);
 			srcJar = new File(currentApp.getPathExt(), Config.MIDLET_RES_FILE);
