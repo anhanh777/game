@@ -255,6 +255,7 @@ abstract class BoxActivity : MicroActivity() {
                 currentProfile.screenKeepAspectRatio = aspectCheck.isChecked
                 currentProfile.showKeyboard = keypadCheck.isChecked
                 currentProfile.orientation = if (lockPortraitCheck.isChecked) 2 else 0
+                currentProfile.screenGravity = if (w > h) 2 else 1 // Center in top display area when landscape frame
                 currentProfile.disablePause = true
                 ProfilesManager.saveConfig(currentProfile)
 
