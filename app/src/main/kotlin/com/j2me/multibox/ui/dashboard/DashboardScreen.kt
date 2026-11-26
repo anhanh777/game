@@ -96,6 +96,7 @@ fun DashboardScreen(
     var showExitConfirmDialog by remember { mutableStateOf(false) }
     var renamingBox by remember { mutableStateOf<BoxUiItem?>(null) }
     var stoppingBox by remember { mutableStateOf<BoxUiItem?>(null) }
+    var enteringBox by remember { mutableStateOf<BoxUiItem?>(null) }
 
     val activeCount = boxes.count { it.runtime?.status != null && it.runtime.status != BoxStatus.OFFLINE }
 
@@ -229,7 +230,7 @@ fun DashboardScreen(
                 items(boxes, key = { it.box.boxId }) { item ->
                     BoxCard(
                         item = item,
-                        onZoomIn = { viewModel.startAndZoomBox(item) },
+                        onZoomIn = { enteringBox = item },
                         onStop = { stoppingBox = item },
                         onRename = { renamingBox = item },
                         onDelete = { viewModel.deleteBox(item.box.boxId) },
@@ -369,6 +370,35 @@ fun DashboardScreen(
             },
             dismissButton = {
                 TextButton(onClick = { stoppingBox = null }) { Text("Không") }
+            }
+        )
+    }
+
+    enteringBox?.let { target ->
+        val isTargetRunning = target.runtime?.status != null && target.runtime.status != BoxStatus.OFFLINE
+        AlertDialog(
+            onDismissRequest = { enteringBox = null },
+            title = { Text("Vào ${target.box.name}?", fontWeight = FontWeight.Bold) },
+            text = {
+                Text(
+                    if (isTargetRunning) {
+                        "Box này đang chạy (${target.gameTitle}). Bạn có muốn mở màn hình game của Box này không?"
+                    } else {
+                        "Bạn có muốn khởi động và vào game ${target.gameTitle} trên Box này không?"
+                    }
+                )
+            },
+            confirmButton = {
+                Button(
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A)),
+                    onClick = {
+                        enteringBox = null
+                        viewModel.startAndZoomBox(target)
+                    }
+                ) { Text("Có, vào Box", color = Color.White) }
+            },
+            dismissButton = {
+                TextButton(onClick = { enteringBox = null }) { Text("Không") }
             }
         )
     }
